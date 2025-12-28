@@ -1,103 +1,35 @@
-# EKS Bootstrap with ArgoCD, KRO & Gateway API
+# Kubernetes Gateway API & ALB Controller Lab
 
-Laboratory demonstrating professional EKS cluster bootstrap with GitOps, custom operators, and shared infrastructure patterns.
+This repository serves as a practical laboratory designed to help developers and DevOps engineers understand the modern Kubernetes stack. It focuses on replacing the traditional Ingress API with the **Gateway API** standard, utilizing the **AWS Load Balancer (ALB) Controller** as the implementation.
 
-## 🎯 What This Lab Demonstrates
+The project leveraging **Helmfile** for chart orchestration, **Kustomize** for manifest patching, and **Kro** for creating custom Kubernetes APIs.
 
-- **EKS Bootstrap**: Automated cluster setup with essential controllers
-- **GitOps with ArgoCD**: Declarative infrastructure management
-- **KRO (Kubernetes Resource Operator)**: Standardized application deployments
-- **Shared Gateway API**: Cost-efficient single ALB for multiple services
-- **Multi-Repository Pattern**: Separation of infrastructure, applications, and code
+## 🚀 Project Overview
 
-## 🏗️ Multi-Repository Architecture
+The main goal of this lab is to demonstrate how multiple microservices can share a single Application Load Balancer (ALB) through the Gateway API, reducing costs and simplifying traffic management.
 
+### Tech Stack
+* **Kubernetes Gateway API:** The evolution of Kubernetes networking.
+* **AWS Load Balancer Controller:** The controller that provisions AWS ALBs based on Gateway API resources.
+* **Helmfile:** Declarative specification for deploying Helm charts.
+* **Kustomize:** Configuration management for native Kubernetes manifests.
+* **Kro:** A tool to define simplified Custom Resource Definitions (CRDs) and ResourceGroups (RGD) to abstract complexity for microservices.
+* **Nginx:** Used as the base image for the demo microservices (`mondamail` and `mondareader`).
+
+## 📂 Repository Structure
+
+The repository is organized into infrastructure management and application logic:
+
+```text
+.
+├── infrastructure
+│   ├── helm               # Helmfile configuration
+│   │   ├── charts         # Configurations for ALB, Gateway API, and Kro
+│   │   └── helmfile.yaml  # Main entry point for infrastructure deployment
+│   └── kustomize          # Raw manifests and overlays
+│       ├── base           # Base definitions (Gateway, ALB ServiceAccount, Kro RGDs)
+│       └── overlays       # Environment-specific patches (dev/prod)
+└── microservices          # Demo applications
+    ├── mondamail          # Example microservice 1
+    └── mondareader        # Example microservice 2
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Repository: k8s-infrastructure            │
-│                                                              │
-│  ┌──────────────┐         ┌─────────────────────┐          │
-│  │   ArgoCD     │────────▶│    Controllers      │          │
-│  │ (App of Apps)│         │  - ALB, EBS, EFS    │          │
-│  └──────────────┘         │  - KRO, Gateway API │          │
-│                           └─────────────────────┘          │
-│                                     │                        │
-│                           ┌─────────▼─────────┐            │
-│                           │  Shared Gateway   │            │
-│                           │  (Single ALB)     │            │
-│                           └─────────┬─────────┘            │
-└─────────────────────────────────────┼──────────────────────┘
-                                      │
-                    ┌─────────────────┴─────────────────┐
-                    │                                   │
-┌───────────────────▼──────────────┐  ┌────────────────▼──────────────┐
-│ Repository: k8s-applications     │  │ Repository: mondamail         │
-│                                  │  │                               │
-│  ┌────────────────────────┐     │  │  ┌──────────────────────┐    │
-│  │ mondamail/             │     │  │  │ src/                 │    │
-│  │  └─ application.yaml   │     │  │  │ Dockerfile           │    │
-│  │     (KRO Resource)     │     │  │  │ deployment.yaml      │    │
-│  │                        │     │  │  │  (KRO Config)        │    │
-│  │ service-2/             │     │  │  │   - replicas: 2      │    │
-│  │  └─ application.yaml   │     │  │  │   - env vars         │    │
-│  └────────────────────────┘     │  │  │   - resources        │    │
-│                                  │  │  └──────────────────────┘    │
-└──────────────────────────────────┘  └────────────────────────────┘
-```
-
-## 🚀 Bootstrap Process
-
-### Step 1: Bootstrap ArgoCD
-
-```bash
-cd bootstrap/initial
-make deploy ENV=dev
-```
-
-This installs:
-1. ArgoCD via Helmfile
-2. Configures ArgoCD namespace
-3. Deploys App of Apps pattern
-
-### Step 2: ArgoCD Deploys Controllers
-
-ArgoCD automatically syncs and installs:
-- AWS Load Balancer Controller
-- Gateway API CRDs
-- KRO Operator
-
-### Step 3: ArgoCD Deploys Shared Resources
-
-- Shared Gateway (single ALB)
-- Manual CRDs
-- Base configurations
-
-### Step 4: Deploy Applications
-
-In `k8s-applications` repository:
-
-```yaml
-# mondamail/application.yaml
-apiVersion: kro.run/v1alpha1
-kind: Mondamail
-metadata:
-  name: mondamail
-  namespace: production
-spec:
-  deployment:
-    replicas: 3
-    image: ghcr.io/org/mondamail:v1.2.0
-    env:
-      - name: DATABASE_URL
-        value: "postgres://..."
-  resources:
-    requests:
-      cpu: "200m"
-      memory: "256Mi"
-```
-
-### Repository Separation
-
-- **k8s-infrastructure**: Platform team manages
-- **k8s-applications**: Platform team + App teams
-- **mondamail**: Developers own completely
